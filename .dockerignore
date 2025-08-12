@@ -1,0 +1,26 @@
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.pytest_cache
+*.eggs
+*.egg-info
+
+# VCS
+.git
+.gitignore
+
+# Env & local configs
+.env
+.env.*
+.venv
+venv
+
+# Data and test outputs
+/data
+/tests
+
+# IDE
+.vscode
+.idea

@@ -1,0 +1,22 @@
+version: "3.9"
+
+services:
+  realm-bot:
+    image: realm-bot:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: realm-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - realm-bot-data:/app/data
+    # If you need to override defaults, add environment or command here
+    # environment:
+    #   LOG_LEVEL: INFO
+    # command: ["python", "-m", "realm_bot.main"]
+
+volumes:
+  realm-bot-data:
+    driver: local
