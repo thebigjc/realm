@@ -1,0 +1,31 @@
+# fly.toml app configuration file generated for realm-status-bot on 2025-08-19T11:19:46-04:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'realm-status-bot'
+primary_region = 'yyz'
+
+[experimental]
+
+[deploy]
+  strategy = 'immediate'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+# Environment variables: set at deploy-time with `flyctl secrets set` or `flyctl deploy -e KEY=VAL`.
+# Do not commit secrets or environment-specific values here.
+# Example (secrets):
+#   flyctl secrets set BNET_CLIENT_ID=... BNET_CLIENT_SECRET=... DISCORD_BOT_TOKEN=...
+# Example (non-secret but per-env):
+#   flyctl secrets set DISCORD_CHANNEL_IDS="123...,234..."
+
+[[mounts]]
+  source = 'realm_data'
+  destination = '/app/data'
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1

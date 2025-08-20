@@ -17,6 +17,13 @@ def setup_logging():
         level=level,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+    
+    # Reduce noise from HTTP libraries
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    
+    # Keep discord.py logs at INFO but can be reduced if needed
+    # logging.getLogger("discord").setLevel(logging.WARNING)
 
 
 async def amain():
@@ -24,7 +31,7 @@ async def amain():
     # Load .env if present
     load_dotenv()
     cfg = Config.load()
-    if not cfg.discord_bot_token or cfg.discord_channel_id is None:
+    if not cfg.discord_bot_token or (cfg.discord_channel_id is None and cfg.discord_channel_ids is None):
         raise RuntimeError(
             "DISCORD_BOT_TOKEN and DISCORD_CHANNEL_ID are required for bot mode. Use the CLI for BNET-only runs."
         )

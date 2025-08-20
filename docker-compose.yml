@@ -8,6 +8,11 @@ services:
       dockerfile: Dockerfile
     container_name: realm-bot
     restart: unless-stopped
+    # Optional: set DNS servers explicitly (helpful on Synology if container DNS fails)
+    # Provide DNS1/DNS2 in your .env, else defaults to Cloudflare
+    dns:
+      - ${DNS1:-1.1.1.1}
+      - ${DNS2:-1.0.0.1}
     env_file:
       - .env
     volumes:
@@ -16,6 +21,8 @@ services:
     # environment:
     #   LOG_LEVEL: INFO
     # command: ["python", "-m", "realm_bot.main"]
+    # Alternative: use host networking (inherits NAS DNS directly). Uncomment if needed.
+    # network_mode: host
 
 volumes:
   realm-bot-data:

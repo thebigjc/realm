@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from typing import Optional
+from typing import List
 
 
 def _env_str(name: str, default: Optional[str] = None) -> Optional[str]:
@@ -26,6 +27,7 @@ class Config:
     bnet_client_secret: str
     discord_bot_token: Optional[str]
     discord_channel_id: Optional[int]
+    discord_channel_ids: Optional[List[int]] = None
     region: str = "us"
     locale: str = "en_US"
     poll_interval_seconds: int = 300
@@ -37,6 +39,7 @@ class Config:
         client_secret = _env_str("BNET_CLIENT_SECRET")
         discord_token = _env_str("DISCORD_BOT_TOKEN")
         channel_id_str = _env_str("DISCORD_CHANNEL_ID")
+        channel_ids_str = _env_str("DISCORD_CHANNEL_IDS")
 
         # Always require BNET creds
         if not client_id or not client_secret:
@@ -55,11 +58,32 @@ class Config:
             except ValueError:
                 raise RuntimeError("DISCORD_CHANNEL_ID must be an integer")
 
+        channel_ids: Optional[List[int]] = None
+        if channel_ids_str:
+            parts = [p.strip() for p in channel_ids_str.split(",") if p.strip()]
+            ids: List[int] = []
+            for p in parts:
+                try:
+                    ids.append(int(p))
+                except ValueError:
+                    raise RuntimeError("DISCORD_CHANNEL_IDS must be a comma-separated list of integers")
+            if ids:
+                channel_ids = ids
+
+        # Backwards compatibility: if single channel provided, include it in channel_ids
+        if channel_id is not None and (channel_ids is None or len(channel_ids) == 0):
+            channel_ids = [channel_id]
+
         if not allow_missing_discord:
             # Require Discord creds in bot mode
-            if not discord_token or channel_id is None:
+            if not discord_token or (channel_ids is None or len(channel_ids) == 0):
                 missing = [
-                    n for n, v in (("DISCORD_BOT_TOKEN", discord_token), ("DISCORD_CHANNEL_ID", channel_id_str)) if not v
+                    n
+                    for n, v in (
+                        ("DISCORD_BOT_TOKEN", discord_token),
+                        ("DISCORD_CHANNEL_ID or DISCORD_CHANNEL_IDS", channel_id_str or channel_ids_str),
+                    )
+                    if not v
                 ]
                 raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
 
@@ -68,6 +92,7 @@ class Config:
             bnet_client_secret=client_secret,
             discord_bot_token=discord_token,
             discord_channel_id=channel_id,
+            discord_channel_ids=channel_ids,
             region=region,
             locale=locale,
             poll_interval_seconds=poll,

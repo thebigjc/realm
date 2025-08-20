@@ -35,3 +35,11 @@ uv run python -m realm_bot.main
 - First run saves a baseline snapshot and does not post.
 - The bot uses the Connected Realm index and per-id details to compute status counts.
 - Poll interval defaults to 5 minutes; adjust via `POLL_INTERVAL_SECONDS`.
+
+### Troubleshooting: DNS failures inside the container
+- Try setting explicit DNS servers via compose. Add `DNS1` and optionally `DNS2` to your `.env`:
+	- `DNS1=1.1.1.1`, `DNS2=1.0.0.1` (or your NAS/router DNS, e.g., `192.168.1.1`).
+- Recreate the container after changing DNS:
+	- `docker compose up -d --force-recreate`
+- Alternative: use host networking to inherit the NAS DNS directly (uncomment `network_mode: host` in compose). Note this exposes ports directly on the host namespace.
+- On Synology, if DNS still fails, check global Docker DNS settings under Container Manager → Settings → Daemon → DNS Server, then restart Docker and the container.
