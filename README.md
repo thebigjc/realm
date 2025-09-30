@@ -35,6 +35,34 @@ uv run python -m realm_bot.main
 - First run saves a baseline snapshot and does not post.
 - The bot uses the Connected Realm index and per-id details to compute status counts.
 - Poll interval defaults to 5 minutes; adjust via `POLL_INTERVAL_SECONDS`.
+- A lightweight metrics & health HTTP server runs (if metrics enabled) on `METRICS_HOST:METRICS_PORT` exposing `/metrics` and `/health`.
+
+### Health endpoint
+
+`/health` returns `200 OK` with a short text body when the bot is considered healthy, otherwise `503 Service Unavailable`.
+
+Readiness logic (anti-flap):
+1. At least one successful poll must have completed.
+2. The last successful poll must be within 15 minutes (staleness threshold).
+3. Fewer than 5 consecutive poll failures.
+
+If any condition fails, status becomes `starting`, `stale`, or `failing` and the endpoint returns `503` so an orchestrator can optionally restart. Discord connectivity is informational (a temporary gateway disconnect will not mark the bot unhealthy unless polls also fail/stall).
+
+Sample response body (text/plain):
+
+```
+healthy
+ status=ok uptime_seconds=732 last_poll_success_age=41 consecutive_failures=0 last_discord_connect_age=60
+```
+
+On failure you might see:
+
+```
+unhealthy
+ status=failing uptime_seconds=910 last_poll_success_age=905 consecutive_failures=6
+```
+
+You can point Fly.io HTTP health checks at `/health` instead of `/metrics` to avoid treating a temporarily stalled metrics scrape as a fatal error. Tune thresholds by editing `_MAX_CONSECUTIVE_FAILURES_FOR_READY` or `_MAX_POLL_STALENESS_SECONDS` in `realm_bot/metrics.py` if needed.
 
 ### Troubleshooting: DNS failures inside the container
 - Try setting explicit DNS servers via compose. Add `DNS1` and optionally `DNS2` to your `.env`:

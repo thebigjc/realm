@@ -6,6 +6,7 @@ import time
 from typing import Any, Dict, List, Optional, cast
 
 import httpx
+from .metrics import blizzard_request_seconds, blizzard_requests_total
 
 
 class BlizzardClient:
@@ -41,17 +42,32 @@ class BlizzardClient:
         auth_bytes = f"{self.client_id}:{self.client_secret}".encode()
         basic = base64.b64encode(auth_bytes).decode()
         async with httpx.AsyncClient(timeout=15.0) as c:
-            r = await c.post(
-                "https://oauth.battle.net/token",
-                headers={"Authorization": f"Basic {basic}", "Content-Type": "application/x-www-form-urlencoded"},
-                data={"grant_type": "client_credentials"},
-            )
-            r.raise_for_status()
-            data = r.json()
-            token = str(data["access_token"])  # ensure non-None string
-            self._token = token
-            self._token_expiry = now + float(data.get("expires_in", 0))
-            return token
+            endpoint = "/oauth/token"
+            method = "POST"
+            start = time.perf_counter()
+            status = "error"
+            outcome = "error"
+            try:
+                r = await c.post(
+                    "https://oauth.battle.net/token",
+                    headers={
+                        "Authorization": f"Basic {basic}",
+                        "Content-Type": "application/x-www-form-urlencoded",
+                    },
+                    data={"grant_type": "client_credentials"},
+                )
+                r.raise_for_status()
+                status = str(r.status_code)
+                outcome = "success"
+                data = r.json()
+                token = str(data["access_token"])  # ensure non-None string
+                self._token = token
+                self._token_expiry = now + float(data.get("expires_in", 0))
+                return token
+            finally:
+                dur = time.perf_counter() - start
+                blizzard_requests_total.labels(endpoint=endpoint, method=method, status=status, outcome=outcome).inc()
+                blizzard_request_seconds.labels(endpoint=endpoint, method=method, status=status, outcome=outcome).observe(dur)
 
     async def _auth_headers(self) -> Dict[str, str]:
         token = await self._get_token()
@@ -64,8 +80,21 @@ class BlizzardClient:
         """Return a list of connected realm IDs."""
         headers = await self._auth_headers()
         params = {"namespace": self.namespace, "locale": self.locale}
-        r = await self._client.get("/data/wow/connected-realm/index", headers=headers, params=params)
-        r.raise_for_status()
+        endpoint = "/data/wow/connected-realm/index"
+        method = "GET"
+        start = time.perf_counter()
+        status = "error"
+        outcome = "error"
+        r = None
+        try:
+            r = await self._client.get(endpoint, headers=headers, params=params)
+            r.raise_for_status()
+            status = str(r.status_code)
+            outcome = "success"
+        finally:
+            dur = time.perf_counter() - start
+            blizzard_requests_total.labels(endpoint=endpoint, method=method, status=status, outcome=outcome).inc()
+            blizzard_request_seconds.labels(endpoint=endpoint, method=method, status=status, outcome=outcome).observe(dur)
         data = r.json()
         ids: List[int] = []
         for cr in data.get("connected_realms", []):
@@ -89,9 +118,22 @@ class BlizzardClient:
     async def fetch_connected_realm_detail(self, cr_id: int) -> Dict[str, Any]:
         headers = await self._auth_headers()
         params = {"namespace": self.namespace, "locale": self.locale}
-        r = await self._client.get(f"/data/wow/connected-realm/{cr_id}", headers=headers, params=params)
-        r.raise_for_status()
-        return r.json()
+        endpoint = f"/data/wow/connected-realm/{cr_id}"
+        method = "GET"
+        start = time.perf_counter()
+        status = "error"
+        outcome = "error"
+        r = None
+        try:
+            r = await self._client.get(endpoint, headers=headers, params=params)
+            r.raise_for_status()
+            status = str(r.status_code)
+            outcome = "success"
+            return r.json()
+        finally:
+            dur = time.perf_counter() - start
+            blizzard_requests_total.labels(endpoint=endpoint, method=method, status=status, outcome=outcome).inc()
+            blizzard_request_seconds.labels(endpoint=endpoint, method=method, status=status, outcome=outcome).observe(dur)
 
     async def fetch_all_connected_realms(self) -> List[Dict[str, Any]]:
         """Fetch connected realm data, preferring Search API and falling back to index+detail."""

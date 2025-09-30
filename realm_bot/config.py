@@ -32,6 +32,9 @@ class Config:
     locale: str = "en_US"
     poll_interval_seconds: int = 300
     state_file_path: str = "./data/state.json"
+    metrics_enabled: bool = True
+    metrics_host: str = "0.0.0.0"
+    metrics_port: int = 9090
 
     @staticmethod
     def load(allow_missing_discord: bool = False) -> "Config":
@@ -50,6 +53,10 @@ class Config:
         locale = _env_str("LOCALE", "en_US") or "en_US"
         poll = _env_int("POLL_INTERVAL_SECONDS", 300)
         state_path = _env_str("STATE_FILE_PATH", "./data/state.json") or "./data/state.json"
+        metrics_enabled_str = _env_str("METRICS_ENABLED", "true") or "true"
+        metrics_enabled = metrics_enabled_str.lower() not in ("0", "false", "no")
+        metrics_host = _env_str("METRICS_HOST", "0.0.0.0") or "0.0.0.0"
+        metrics_port = _env_int("METRICS_PORT", 9090)
 
         channel_id: Optional[int] = None
         if channel_id_str:
@@ -97,4 +104,7 @@ class Config:
             locale=locale,
             poll_interval_seconds=poll,
             state_file_path=state_path,
+            metrics_enabled=metrics_enabled,
+            metrics_host=metrics_host,
+            metrics_port=metrics_port,
         )

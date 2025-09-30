@@ -9,6 +9,7 @@ from .config import Config
 from .discord_bot import RealmStatusBot
 from .realm_tracker import StateStore
 from dotenv import load_dotenv
+from .metrics import start_metrics_server
 
 
 def setup_logging():
@@ -31,6 +32,8 @@ async def amain():
     # Load .env if present
     load_dotenv()
     cfg = Config.load()
+    if cfg.metrics_enabled:
+        start_metrics_server(cfg.metrics_host, cfg.metrics_port)
     if not cfg.discord_bot_token or (cfg.discord_channel_id is None and cfg.discord_channel_ids is None):
         raise RuntimeError(
             "DISCORD_BOT_TOKEN and DISCORD_CHANNEL_ID are required for bot mode. Use the CLI for BNET-only runs."

@@ -12,6 +12,20 @@ from discord import app_commands
 from .blizzard_client import BlizzardClient
 from .config import Config
 from .realm_tracker import StateStore, compute_counts, diff_snapshots, format_message, make_snapshot
+from .metrics import (
+    discord_connected,
+    discord_messages_sent_total,
+    discord_send_seconds,
+    discord_command_invocations_total,
+    update_realm_gauges,
+    discord_ws_latency_seconds,
+    discord_message_send_errors_total,
+    note_poll_success,
+    note_poll_error,
+    note_discord_connect,
+    note_discord_disconnect,
+)
+from .models import parse_connected_realms
 
 
 log = logging.getLogger(__name__)
@@ -25,18 +39,22 @@ class RealmCommands(commands.Cog):
     async def realm(self, interaction: discord.Interaction):
         """Get current realm status (private response)"""
         try:
+            discord_command_invocations_total.labels(command="realm", status="started").inc()
             snap = self.bot.state.load()
             if snap is None:
                 await interaction.response.send_message(
                     "No cached state available. Please try again later.",
                     ephemeral=True,
                 )
+                discord_command_invocations_total.labels(command="realm", status="no_cache").inc()
                 return
             d = diff_snapshots(None, snap)
             await interaction.response.send_message(format_message(d), ephemeral=True)
+            discord_command_invocations_total.labels(command="realm", status="success").inc()
         except Exception as e:
             log.exception("Failed to handle cached status request: %s", e)
             await interaction.response.send_message("Failed to read cached state; try again later.", ephemeral=True)
+            discord_command_invocations_total.labels(command="realm", status="error").inc()
 
 
 class RealmStatusBot(commands.Bot):
@@ -82,6 +100,14 @@ class RealmStatusBot(commands.Bot):
 
     async def on_ready(self):
         log.info("Logged in as %s (%s)", self.user, self.user.id if self.user else "?")
+        try:
+            discord_connected.set(1)
+        except Exception:
+            pass
+        try:
+            note_discord_connect()
+        except Exception:
+            pass
 
     # Slash commands now live in the RealmCommands Cog above
 
@@ -111,12 +137,36 @@ class RealmStatusBot(commands.Bot):
                         # mypy: dynamic attribute assignment
                         setattr(self, "_channels", resolved)
 
-                connected_realms = await self.blizzard.fetch_all_connected_realms()
-                available, status_counts, total = compute_counts(connected_realms)
-                current = make_snapshot(available, status_counts, total)
-                previous = self.state.load()
+                poll_ok = False
+                try:
+                    connected_realms = await self.blizzard.fetch_all_connected_realms()
+                    available, status_counts, total = compute_counts(connected_realms)
+                    current = make_snapshot(available, status_counts, total)
+                    previous = self.state.load()
+                    poll_ok = True
+                except Exception as e:
+                    log.exception("Poll failure: %s", e)
+                    try:
+                        note_poll_error()
+                    except Exception:
+                        pass
+                    await asyncio.sleep(10)
+                    continue
+
+                # Build per-realm up map using typed models
+                status_by_realm: dict[str, bool] = {}
+                for cr in parse_connected_realms(connected_realms):
+                    up = cr.is_up()
+                    for label in cr.realm_labels():
+                        status_by_realm[label] = up
+                update_realm_gauges(status_by_realm)
 
                 d = diff_snapshots(previous, current)
+                if poll_ok:
+                    try:
+                        note_poll_success()
+                    except Exception:
+                        pass
                 if previous is None:
                     # Save baseline without posting
                     self.state.save(current)
@@ -129,20 +179,43 @@ class RealmStatusBot(commands.Bot):
                         if channels:
                             for ch in channels:
                                 try:
+                                    from time import perf_counter
+                                    t0 = perf_counter()
                                     await ch.send(msg)
+                                    dt = perf_counter() - t0
+                                    chan_label = str(getattr(ch, "id", "?"))
+                                    discord_messages_sent_total.labels(channel=chan_label).inc()
+                                    discord_send_seconds.labels(channel=chan_label).observe(dt)
                                 except Exception as e:
                                     log.error("Failed to send message to %s: %s", getattr(ch, "id", "?"), e)
+                                    chan_label = str(getattr(ch, "id", "?"))
+                                    discord_message_send_errors_total.labels(channel=chan_label).inc()
                         elif self._channel is not None:
+                            from time import perf_counter
+
+                            t0 = perf_counter()
                             await self._channel.send(msg)  # type: ignore[union-attr]
+                            dt = perf_counter() - t0
+                            chan_label = str(getattr(self._channel, "id", "?"))  # type: ignore[union-attr]
+                            discord_messages_sent_total.labels(channel=chan_label).inc()
+                            discord_send_seconds.labels(channel=chan_label).observe(dt)
                         else:
                             log.warning("No Discord channel configured to post updates")
                     except Exception as e:
                         log.error("Failed to send message: %s", e)
+                        # Count generic send failure when channel not available
+                        discord_message_send_errors_total.labels(channel="unknown").inc()
                     else:
                         self.state.save(current)
                         log.info("Posted update and saved snapshot")
 
                 await asyncio.sleep(max(30, int(self.config.poll_interval_seconds)))
+                # Update websocket latency gauge each iteration
+                try:
+                    lat = float(self.latency) if getattr(self, "latency", None) is not None else 0.0
+                    discord_ws_latency_seconds.set(lat)
+                except Exception:
+                    pass
         except Exception as e:
             log.exception("poll loop error: %s", e)
 
@@ -154,4 +227,12 @@ class RealmStatusBot(commands.Bot):
                     await self._poll_task
             await self.blizzard.aclose()
         finally:
+            try:
+                discord_connected.set(0)
+            except Exception:
+                pass
+            try:
+                note_discord_disconnect()
+            except Exception:
+                pass
             await super().close()
