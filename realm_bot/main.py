@@ -10,6 +10,7 @@ from .discord_bot import RealmStatusBot
 from .realm_tracker import StateStore
 from dotenv import load_dotenv
 from .metrics import start_metrics_server
+from .sentry_init import init_sentry, set_sentry_context
 
 
 def setup_logging():
@@ -32,6 +33,12 @@ async def amain():
     # Load .env if present
     load_dotenv()
     cfg = Config.load()
+    # Initialize Sentry (no-op if SENTRY_DSN not set)
+    try:
+        init_sentry()
+        set_sentry_context(cfg)
+    except Exception:
+        logging.getLogger(__name__).debug("Sentry initialization failed", exc_info=True)
     if cfg.metrics_enabled:
         start_metrics_server(cfg.metrics_host, cfg.metrics_port)
     if not cfg.discord_bot_token or (cfg.discord_channel_id is None and cfg.discord_channel_ids is None):

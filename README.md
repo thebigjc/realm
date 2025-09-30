@@ -14,6 +14,12 @@ A Discord bot that periodically checks US World of Warcraft realm availability a
 - `DISCORD_BOT_TOKEN`
 - `DISCORD_CHANNEL_ID` (integer)
 - Optional: `REGION` (default `us`), `LOCALE` (`en_US`), `POLL_INTERVAL_SECONDS` (default `300`), `STATE_FILE_PATH` (default `./data/state.json`)
+- Observability (optional):
+	- `SENTRY_DSN` (enable Sentry error reporting; store as Fly secret: `flyctl secrets set SENTRY_DSN=...`)
+	- `SENTRY_TRACES_SAMPLE_RATE` (float 0.0–1.0, default 0.0; set small value like `0.05` if you want performance tracing)
+	- `SENTRY_PROFILES_SAMPLE_RATE` (float 0.0–1.0, default 0.0; enable only if needed—profiling adds overhead)
+	- `SENTRY_ENVIRONMENT` (override environment tag, default derived from `ENV` or `production`)
+	- `SENTRY_RELEASE` (explicit release identifier; otherwise leave unset)
 
 ### Using uv
 
