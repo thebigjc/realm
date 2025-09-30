@@ -33,3 +33,28 @@ primary_region = 'yyz'
 [metrics]
   port = 9090
   path = "/metrics"
+
+# HTTP service exposing metrics & health. The app only needs a single port (9090).
+# We include a health check pointing at /health with conservative timings to avoid flapping.
+[[http_service]]
+  internal_port = 9090
+  force_https = false
+  auto_stop_machines = false   # keep the bot running; don't scale to zero
+  auto_start_machines = true
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 200
+    soft_limit = 100
+
+  # Health check: allow some startup / transient API hiccups.
+  [[http_service.checks]]
+    name = "health"
+    method = "GET"
+    path = "/health"
+    protocol = "http"
+    interval = "30s"       # check every 30s
+    timeout = "5s"
+    grace_period = "60s"   # give bot up to 60s to perform first successful poll
+    restart_limit = 3       # restart after 3 consecutive failures
