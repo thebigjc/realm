@@ -6,9 +6,9 @@ requires-python = ">=3.10"
 dependencies = [
     "discord.py>=2.4.0",
     "httpx[http2]>=0.27.0",
-    "pydantic>=2.11.9",
-    "pytest>=8.4.2",
-    "python-dotenv>=1.0.1",
+    "pydantic>=2.12.4",
+    "pytest>=9.0.1",
+    "python-dotenv>=1.2.1",
     "tenacity>=8.2.3",
     "prometheus-client>=0.20.0",
     "sentry-sdk>=2.13.0",
@@ -20,6 +20,8 @@ pythonpath = ["."]
 
 [project.scripts]
 wow-realm-bnet = "realm_bot.cli:main"
+wow-realm-category-counts = "realm_bot.category_counts_cli:main"
+wow-realm-dump = "realm_bot.dump_realms_cli:main"
 
 [tool.uv]
 package = true
@@ -31,7 +33,7 @@ build-backend = "setuptools.build_meta"
 [dependency-groups]
 dev = [
     "mypy>=1.18.2",
-    "pyright>=1.1.405",
+    "pyright>=1.1.407",
 ]
 
 [tool.setuptools.packages.find]

@@ -35,6 +35,7 @@ class Config:
     metrics_enabled: bool = True
     metrics_host: str = "0.0.0.0"
     metrics_port: int = 9090
+    min_change_threshold: int = 10  # Only post if |delta| >= this many realms
 
     @staticmethod
     def load(allow_missing_discord: bool = False) -> "Config":
@@ -57,6 +58,7 @@ class Config:
         metrics_enabled = metrics_enabled_str.lower() not in ("0", "false", "no")
         metrics_host = _env_str("METRICS_HOST", "0.0.0.0") or "0.0.0.0"
         metrics_port = _env_int("METRICS_PORT", 9090)
+        min_change_threshold = _env_int("MIN_CHANGE_THRESHOLD", 10)
 
         channel_id: Optional[int] = None
         if channel_id_str:
@@ -107,4 +109,5 @@ class Config:
             metrics_enabled=metrics_enabled,
             metrics_host=metrics_host,
             metrics_port=metrics_port,
+            min_change_threshold=min_change_threshold,
         )

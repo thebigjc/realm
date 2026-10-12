@@ -14,6 +14,7 @@ A Discord bot that periodically checks US World of Warcraft realm availability a
 - `DISCORD_BOT_TOKEN`
 - `DISCORD_CHANNEL_ID` (integer)
 - Optional: `REGION` (default `us`), `LOCALE` (`en_US`), `POLL_INTERVAL_SECONDS` (default `300`), `STATE_FILE_PATH` (default `./data/state.json`)
+- `MIN_CHANGE_THRESHOLD` (default `10`): Minimum number of realms that must change status before posting to Discord. Filters out minor flaps (1-7 realms going down briefly) while still alerting on maintenance windows (100+ realms). Set to `1` for the old behavior (post on any change).
 - Observability (optional):
 	- `SENTRY_DSN` (enable Sentry error reporting; store as Fly secret: `flyctl secrets set SENTRY_DSN=...`)
 	- `SENTRY_TRACES_SAMPLE_RATE` (float 0.0–1.0, default 0.0; set small value like `0.05` if you want performance tracing)
