@@ -135,6 +135,25 @@ class BlizzardClient:
             blizzard_requests_total.labels(endpoint=endpoint, method=method, status=status, outcome=outcome).inc()
             blizzard_request_seconds.labels(endpoint=endpoint, method=method, status=status, outcome=outcome).observe(dur)
 
+    async def fetch_realm_detail_by_href(self, href: str) -> Dict[str, Any]:
+        headers = await self._auth_headers()
+        endpoint = "/data/wow/realm/by-href"
+        method = "GET"
+        start = time.perf_counter()
+        status = "error"
+        outcome = "error"
+        r = None
+        try:
+            r = await self._client.get(href, headers=headers)
+            r.raise_for_status()
+            status = str(r.status_code)
+            outcome = "success"
+            return r.json()
+        finally:
+            dur = time.perf_counter() - start
+            blizzard_requests_total.labels(endpoint=endpoint, method=method, status=status, outcome=outcome).inc()
+            blizzard_request_seconds.labels(endpoint=endpoint, method=method, status=status, outcome=outcome).observe(dur)
+
     async def fetch_all_connected_realms(self) -> List[Dict[str, Any]]:
         """Fetch connected realm data, preferring Search API and falling back to index+detail."""
         # Try search first to minimize calls

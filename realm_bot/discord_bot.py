@@ -161,7 +161,7 @@ class RealmStatusBot(commands.Bot):
                         status_by_realm[label] = up
                 update_realm_gauges(status_by_realm)
 
-                d = diff_snapshots(previous, current)
+                d = diff_snapshots(previous, current, self.config.min_change_threshold)
                 if poll_ok:
                     try:
                         note_poll_success()

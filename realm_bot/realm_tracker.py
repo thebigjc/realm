@@ -103,12 +103,22 @@ class Diff:
     curr: Snapshot
 
 
-def diff_snapshots(prev: Snapshot | None, curr: Snapshot) -> Diff:
+def diff_snapshots(prev: Snapshot | None, curr: Snapshot, min_change_threshold: int = 1) -> Diff:
+    """Compare snapshots and decide whether to post.
+
+    Args:
+        prev: Previous snapshot (None on first run).
+        curr: Current snapshot.
+        min_change_threshold: Minimum absolute change in available_count to trigger a post.
+            Default is 1 (any change). Set higher (e.g., 10) to filter out minor flaps
+            and only post for significant events like maintenance windows.
+    """
     if prev is None:
         # First run: set baseline without posting
         return Diff(should_post=False, prev=None, curr=curr)
-    changed = prev.available_count != curr.available_count
-    return Diff(should_post=changed, prev=prev, curr=curr)
+    delta = abs(curr.available_count - prev.available_count)
+    should_post = delta >= min_change_threshold
+    return Diff(should_post=should_post, prev=prev, curr=curr)
 
 
 def format_message(diff: Diff) -> str:
